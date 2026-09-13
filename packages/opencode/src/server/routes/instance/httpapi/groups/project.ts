@@ -1,7 +1,7 @@
 import { Project } from "@/project/project"
 import { ProjectV2 } from "@opencode-ai/core/project"
 import { Schema } from "effect"
-import { HttpApi, HttpApiEndpoint, HttpApiError, HttpApiGroup, OpenApi } from "effect/unstable/httpapi"
+import { HttpApi, HttpApiEndpoint, HttpApiError, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi"
 import { ProjectNotFoundError } from "../errors"
 import { Authorization } from "../middleware/authorization"
 import { InstanceContextMiddleware } from "../middleware/instance-context"
@@ -12,6 +12,7 @@ const root = "/project"
 const UpdatePayload = Schema.Struct({
   name: Schema.optional(Schema.String),
   icon: Schema.optional(Project.Info.fields.icon),
+  background: Schema.optional(Project.Info.fields.background),
   commands: Schema.optional(Project.Info.fields.commands),
 })
 
@@ -60,6 +61,21 @@ export const ProjectApi = HttpApi.make("project")
             identifier: "project.update",
             summary: "Update project",
             description: "Update project properties such as name, icon, and commands.",
+          }),
+        ),
+        HttpApiEndpoint.get("background", `${root}/:projectID/background`, {
+          params: { projectID: ProjectV2.ID },
+          query: WorkspaceRoutingQuery,
+          success: described(
+            Schema.Uint8Array.pipe(HttpApiSchema.asUint8Array({ contentType: "application/octet-stream" })),
+            "Project background image bytes",
+          ),
+          error: [ProjectNotFoundError, HttpApiError.NotFound],
+        }).annotateMerge(
+          OpenApi.annotations({
+            identifier: "project.background",
+            summary: "Get project background",
+            description: "Read the discovered background image configured for a project.",
           }),
         ),
         HttpApiEndpoint.get("directories", `${root}/:projectID/directories`, {

@@ -1,8 +1,10 @@
 import * as InstanceState from "@/effect/instance-state"
 import { Project } from "@/project/project"
 import { ProjectV2 } from "@opencode-ai/core/project"
+import { FSUtil } from "@opencode-ai/core/fs-util"
 import { Effect } from "effect"
-import { HttpApiBuilder } from "effect/unstable/httpapi"
+import { HttpApiBuilder, HttpApiError } from "effect/unstable/httpapi"
+import path from "path"
 import { InstanceHttpApi } from "../api"
 import { ProjectNotFoundError } from "../errors"
 import { markInstanceForReload } from "../lifecycle"
@@ -53,11 +55,30 @@ export const projectHandlers = HttpApiBuilder.group(InstanceHttpApi, "project", 
       project.directories({ projectID: ctx.params.projectID }),
     )
 
+    const background = Effect.fn("ProjectHttpApi.background")(function* (ctx: { params: { projectID: ProjectV2.ID } }) {
+      const info = yield* svc.get(ctx.params.projectID)
+      if (!info)
+        return yield* new ProjectNotFoundError({ projectID: ctx.params.projectID, message: "Project not found" })
+      const url = info.background?.url
+      if (!url) return yield* new HttpApiError.NotFound({})
+      // Non-git projects share the `global` row and keep worktree "/"; discovered
+      // paths are relative to the directory that registered them.
+      const root = info.worktree === "/" ? (yield* InstanceState.context).directory : info.worktree
+      const file = path.resolve(root, url)
+      if (!FSUtil.contains(root, file)) return yield* new HttpApiError.NotFound({})
+      const bytes = yield* FSUtil.Service.use((fs) => fs.readFile(file)).pipe(
+        Effect.catch(() => Effect.succeed(undefined)),
+      )
+      if (!bytes) return yield* new HttpApiError.NotFound({})
+      return bytes
+    })
+
     return handlers
       .handle("list", list)
       .handle("current", current)
       .handle("initGit", initGit)
       .handle("update", update)
+      .handle("background", background)
       .handle("directories", directories)
   }),
 )

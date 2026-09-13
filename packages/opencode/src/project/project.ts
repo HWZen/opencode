@@ -41,12 +41,22 @@ export function fromRow(row: Row): Info {
           color: row.icon_color ?? undefined,
         }
       : undefined
+  const background =
+    row.background_url || row.background_url_override || row.background_opacity || row.background_blur
+      ? {
+          url: row.background_url ?? undefined,
+          override: row.background_url_override ?? undefined,
+          opacity: row.background_opacity ?? undefined,
+          blur: row.background_blur ?? undefined,
+        }
+      : undefined
   return {
     id: row.id,
     worktree: row.worktree,
     vcs: row.vcs ? Schema.decodeUnknownSync(Project.Vcs)(row.vcs) : undefined,
     name: row.name ?? undefined,
     icon,
+    background,
     time: {
       created: row.time_created,
       updated: row.time_updated,
@@ -61,6 +71,7 @@ export const UpdateInput = Schema.Struct({
   projectID: ProjectV2.ID,
   name: Schema.optional(Schema.String),
   icon: Schema.optional(Project.Icon),
+  background: Schema.optional(Project.Background),
   commands: Schema.optional(Project.Commands),
 })
 export type UpdateInput = Types.DeepMutable<Schema.Schema.Type<typeof UpdateInput>>
@@ -68,6 +79,7 @@ export type UpdateInput = Types.DeepMutable<Schema.Schema.Type<typeof UpdateInpu
 export const UpdatePayload = Schema.Struct({
   name: Schema.optional(Schema.String),
   icon: Schema.optional(Project.Icon),
+  background: Schema.optional(Project.Background),
   commands: Schema.optional(Project.Commands),
 }).annotate({ identifier: "ProjectUpdateInput" })
 export type UpdatePayload = Types.DeepMutable<Schema.Schema.Type<typeof UpdatePayload>>
@@ -89,6 +101,7 @@ export interface Interface {
   readonly init: () => Effect.Effect<void>
   readonly fromDirectory: (directory: string) => Effect.Effect<{ project: Info; sandbox: string }>
   readonly discover: (input: Info) => Effect.Effect<void>
+  readonly discoverBackground: (input: Info) => Effect.Effect<void>
   readonly list: () => Effect.Effect<Info[]>
   readonly get: (id: ProjectV2.ID) => Effect.Effect<Info | undefined>
   readonly update: (input: UpdateInput) => Effect.Effect<Info, NotFoundError>
@@ -231,6 +244,8 @@ const layer = Layer.effect(
           }
 
       if (flags.experimentalIconDiscovery) yield* discover(existing).pipe(Effect.ignore, Effect.forkIn(scope))
+      if (flags.experimentalBackgroundDiscovery)
+        yield* discoverBackground(existing).pipe(Effect.ignore, Effect.forkIn(scope))
 
       const result: Info = {
         ...existing,
@@ -264,6 +279,10 @@ const layer = Layer.effect(
           icon_url: result.icon?.url,
           icon_url_override: result.icon?.override,
           icon_color: result.icon?.color,
+          background_url: result.background?.url,
+          background_url_override: result.background?.override,
+          background_opacity: result.background?.opacity,
+          background_blur: result.background?.blur,
           time_created: result.time.created,
           time_updated: result.time.updated,
           time_initialized: result.time.initialized,
@@ -279,6 +298,10 @@ const layer = Layer.effect(
             icon_url: result.icon?.url,
             icon_url_override: result.icon?.override,
             icon_color: result.icon?.color,
+            background_url: result.background?.url,
+            background_url_override: result.background?.override,
+            background_opacity: result.background?.opacity,
+            background_blur: result.background?.blur,
             time_updated: result.time.updated,
             time_initialized: result.time.initialized,
             sandboxes: result.sandboxes.map((sandbox) => AbsolutePath.make(sandbox)),
@@ -333,6 +356,24 @@ const layer = Layer.effect(
       )
     })
 
+    const discoverBackground = Effect.fn("Project.discoverBackground")(function* (input: Info) {
+      if (input.background?.override) return
+      if (input.background?.url) return
+
+      const matches = yield* fs
+        .glob(".opencode/background.{png,jpg,jpeg,webp,avif}", {
+          cwd: input.worktree,
+          include: "file",
+        })
+        .pipe(Effect.orDie)
+      const shortest = matches.sort((a, b) => a.length - b.length)[0]
+      if (!shortest) return
+
+      yield* update({ projectID: input.id, background: { url: shortest.replaceAll("\\", "/") } }).pipe(
+        Effect.catchTag("Project.NotFoundError", () => Effect.void),
+      )
+    })
+
     const list = Effect.fn("Project.list")(function* () {
       return (yield* db.select().from(ProjectTable).all().pipe(Effect.orDie)).map(fromRow)
     })
@@ -350,6 +391,10 @@ const layer = Layer.effect(
           icon_url: input.icon?.url,
           icon_url_override: input.icon?.override,
           icon_color: input.icon?.color,
+          background_url: input.background?.url,
+          background_url_override: input.background?.override,
+          background_opacity: input.background?.opacity,
+          background_blur: input.background?.blur,
           commands: input.commands,
           time_updated: Date.now(),
         })
@@ -451,6 +496,7 @@ const layer = Layer.effect(
       init,
       fromDirectory,
       discover,
+      discoverBackground,
       list,
       get,
       update,

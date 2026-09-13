@@ -131,6 +131,14 @@ describe("RuntimeFlags", () => {
     }),
   )
 
+  it.effect("experimentalBackgroundDiscovery defaults to false", () =>
+    Effect.gen(function* () {
+      const flags = yield* readFlags.pipe(Effect.provide(fromConfig({})))
+
+      expect(flags.experimentalBackgroundDiscovery).toBe(false)
+    }),
+  )
+
   it.effect("disableExternalSkills defaults to false", () =>
     Effect.gen(function* () {
       const flags = yield* readFlags.pipe(Effect.provide(fromConfig({})))
@@ -200,6 +208,24 @@ describe("RuntimeFlags", () => {
       const flags = yield* readFlags.pipe(Effect.provide(fromConfig({ OPENCODE_EXPERIMENTAL: "true" })))
 
       expect(flags.experimentalIconDiscovery).toBe(true)
+    }),
+  )
+
+  it.effect("experimentalBackgroundDiscovery reads OPENCODE_EXPERIMENTAL_BACKGROUND_DISCOVERY", () =>
+    Effect.gen(function* () {
+      const flags = yield* readFlags.pipe(
+        Effect.provide(fromConfig({ OPENCODE_EXPERIMENTAL_BACKGROUND_DISCOVERY: "true" })),
+      )
+
+      expect(flags.experimentalBackgroundDiscovery).toBe(true)
+    }),
+  )
+
+  it.effect("experimentalBackgroundDiscovery inherits OPENCODE_EXPERIMENTAL", () =>
+    Effect.gen(function* () {
+      const flags = yield* readFlags.pipe(Effect.provide(fromConfig({ OPENCODE_EXPERIMENTAL: "true" })))
+
+      expect(flags.experimentalBackgroundDiscovery).toBe(true)
     }),
   )
 

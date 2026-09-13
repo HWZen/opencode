@@ -95,6 +95,12 @@ const iconDiscoveryIt = testEffect(
   AppNodeBuilder.build(projectTestNode, [[RuntimeFlags.node, RuntimeFlags.layer({ experimentalIconDiscovery: true })]]),
 )
 
+const backgroundDiscoveryIt = testEffect(
+  AppNodeBuilder.build(projectTestNode, [
+    [RuntimeFlags.node, RuntimeFlags.layer({ experimentalBackgroundDiscovery: true })],
+  ]),
+)
+
 function waitForProjectIcon(id: ProjectV2.ID, attempts = 50): Effect.Effect<Project.Info, never, Project.Service> {
   return Effect.gen(function* () {
     const project = yield* Project.Service
@@ -103,6 +109,20 @@ function waitForProjectIcon(id: ProjectV2.ID, attempts = 50): Effect.Effect<Proj
     if (attempts <= 0) throw new Error(`Project icon was not discovered: ${id}`)
     yield* Effect.sleep("10 millis")
     return yield* waitForProjectIcon(id, attempts - 1)
+  })
+}
+
+function waitForProjectBackground(
+  id: ProjectV2.ID,
+  attempts = 50,
+): Effect.Effect<Project.Info, never, Project.Service> {
+  return Effect.gen(function* () {
+    const project = yield* Project.Service
+    const info = yield* project.get(id)
+    if (info?.background?.url) return info
+    if (attempts <= 0) throw new Error(`Project background was not discovered: ${id}`)
+    yield* Effect.sleep("10 millis")
+    return yield* waitForProjectBackground(id, attempts - 1)
   })
 }
 
@@ -475,6 +495,64 @@ describe("Project.discover", () => {
       expect(updated!.icon?.url).toBeUndefined()
     }),
   )
+
+  backgroundDiscoveryIt.live("discovers .opencode/background.png from fromDirectory when enabled", () =>
+    Effect.gen(function* () {
+      const project = yield* Project.Service
+      const tmp = yield* tmpdirScoped({ git: true })
+      const pngData = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+      yield* Effect.promise(() => Bun.write(path.join(tmp, ".opencode", "background.png"), pngData))
+
+      const result = yield* project.fromDirectory(tmp)
+      const updated = yield* waitForProjectBackground(result.project.id)
+
+      expect(updated.background?.url).toBe(".opencode/background.png")
+      expect(updated.background?.override).toBeUndefined()
+    }),
+  )
+
+  it.live("should discover .opencode/background.png", () =>
+    Effect.gen(function* () {
+      const project = yield* Project.Service
+      const tmp = yield* tmpdirScoped({ git: true })
+      const result = yield* project.fromDirectory(tmp)
+
+      const pngData = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+      yield* Effect.promise(() => Bun.write(path.join(tmp, ".opencode", "background.png"), pngData))
+
+      yield* project.discoverBackground(result.project)
+
+      const updated = yield* project.get(result.project.id)
+      expect(updated).toBeDefined()
+      expect(updated!.background?.url).toBe(".opencode/background.png")
+    }),
+  )
+
+  it.live("should not discover background when override is set", () =>
+    Effect.gen(function* () {
+      const project = yield* Project.Service
+      const tmp = yield* tmpdirScoped({ git: true })
+      const result = yield* project.fromDirectory(tmp)
+
+      yield* project.update({
+        projectID: result.project.id,
+        background: { override: "data:image/png;base64,override" },
+      })
+
+      const updatedProject = yield* project.get(result.project.id)
+      if (!updatedProject) throw new Error("Project not found")
+
+      const pngData = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+      yield* Effect.promise(() => Bun.write(path.join(tmp, ".opencode", "background.png"), pngData))
+
+      yield* project.discoverBackground(updatedProject)
+
+      const updated = yield* project.get(result.project.id)
+      expect(updated).toBeDefined()
+      expect(updated!.background?.override).toBe("data:image/png;base64,override")
+      expect(updated!.background?.url).toBeUndefined()
+    }),
+  )
 })
 
 describe("Project.update", () => {
@@ -547,6 +625,28 @@ describe("Project.update", () => {
 
       const fromDb = yield* project.get(result.project.id)
       expect(fromDb?.icon?.override).toBe("data:image/png;base64,abc123")
+    }),
+  )
+
+  it.live("should update background", () =>
+    Effect.gen(function* () {
+      const project = yield* Project.Service
+      const tmp = yield* tmpdirScoped({ git: true })
+      const result = yield* project.fromDirectory(tmp)
+
+      const updated = yield* project.update({
+        projectID: result.project.id,
+        background: { override: "data:image/webp;base64,abc123", opacity: 40, blur: 8 },
+      })
+
+      expect(updated.background?.override).toBe("data:image/webp;base64,abc123")
+      expect(updated.background?.opacity).toBe(40)
+      expect(updated.background?.blur).toBe(8)
+
+      const fromDb = yield* project.get(result.project.id)
+      expect(fromDb?.background?.override).toBe("data:image/webp;base64,abc123")
+      expect(fromDb?.background?.opacity).toBe(40)
+      expect(fromDb?.background?.blur).toBe(8)
     }),
   )
 
