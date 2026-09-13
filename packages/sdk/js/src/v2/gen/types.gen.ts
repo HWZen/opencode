@@ -1485,6 +1485,7 @@ export type GlobalEvent = {
           vcs?: ProjectVcs
           name?: string
           icon?: ProjectIcon
+          background?: ProjectBackground
           commands?: ProjectCommands
           time: ProjectTime
           sandboxes: Array<string>
@@ -2430,6 +2431,7 @@ export type Project = {
   vcs?: ProjectVcs
   name?: string
   icon?: ProjectIcon
+  background?: ProjectBackground
   commands?: ProjectCommands
   time: ProjectTime
   sandboxes: Array<string>
@@ -2439,6 +2441,10 @@ export type ProjectNotFoundError = {
   _tag: "ProjectNotFoundError"
   projectID: string
   message: string
+}
+
+export type EffectHttpApiErrorNotFound = {
+  _tag: "NotFound"
 }
 
 export type PtyNotFoundError = {
@@ -3171,6 +3177,13 @@ export type ProjectIcon = {
   url?: string
   override?: string
   color?: string
+}
+
+export type ProjectBackground = {
+  url?: string
+  override?: string
+  opacity?: number
+  blur?: number
 }
 
 export type ProjectCommands = {
@@ -5907,6 +5920,7 @@ export type ProjectUpdated = {
     vcs?: ProjectVcs
     name?: string
     icon?: ProjectIcon
+    background?: ProjectBackground
     commands?: ProjectCommands
     time: ProjectTime
     sandboxes: Array<string>
@@ -6925,6 +6939,7 @@ export type EventProjectUpdated = {
     vcs?: ProjectVcs
     name?: string
     icon?: ProjectIcon
+    background?: ProjectBackground
     commands?: ProjectCommands
     time: ProjectTime
     sandboxes: Array<string>
@@ -8793,6 +8808,7 @@ export type ProjectUpdateData = {
   body?: {
     name?: string
     icon?: ProjectIcon
+    background?: ProjectBackground
     commands?: ProjectCommands
   }
   path: {
@@ -8826,6 +8842,40 @@ export type ProjectUpdateResponses = {
 }
 
 export type ProjectUpdateResponse = ProjectUpdateResponses[keyof ProjectUpdateResponses]
+
+export type ProjectBackgroundData = {
+  body?: never
+  path: {
+    projectID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/project/{projectID}/background"
+}
+
+export type ProjectBackgroundErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * ProjectNotFoundError | NotFound
+   */
+  404: ProjectNotFoundError | EffectHttpApiErrorNotFound
+}
+
+export type ProjectBackgroundError = ProjectBackgroundErrors[keyof ProjectBackgroundErrors]
+
+export type ProjectBackgroundResponses = {
+  /**
+   * Project background image bytes
+   */
+  200: Blob | File
+}
+
+export type ProjectBackgroundResponse = ProjectBackgroundResponses[keyof ProjectBackgroundResponses]
 
 export type ProjectDirectoriesData = {
   body?: never

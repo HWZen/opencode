@@ -130,6 +130,9 @@ import type {
   PermissionRuleset,
   PermissionV2Reply,
   PermissionV2Source,
+  ProjectBackground,
+  ProjectBackgroundErrors,
+  ProjectBackgroundResponses,
   ProjectCommands,
   ProjectCurrentErrors,
   ProjectCurrentResponses,
@@ -2630,6 +2633,7 @@ export class Project extends HeyApiClient {
       workspace?: string
       name?: string
       icon?: ProjectIcon
+      background?: ProjectBackground
       commands?: ProjectCommands
     },
     options?: Options<never, ThrowOnError>,
@@ -2644,6 +2648,7 @@ export class Project extends HeyApiClient {
             { in: "query", key: "workspace" },
             { in: "body", key: "name" },
             { in: "body", key: "icon" },
+            { in: "body", key: "background" },
             { in: "body", key: "commands" },
           ],
         },
@@ -2658,6 +2663,38 @@ export class Project extends HeyApiClient {
         ...options?.headers,
         ...params.headers,
       },
+    })
+  }
+
+  /**
+   * Get project background
+   *
+   * Read the discovered background image configured for a project.
+   */
+  public background<ThrowOnError extends boolean = false>(
+    parameters: {
+      projectID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "projectID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<ProjectBackgroundResponses, ProjectBackgroundErrors, ThrowOnError>({
+      url: "/project/{projectID}/background",
+      ...options,
+      ...params,
     })
   }
 

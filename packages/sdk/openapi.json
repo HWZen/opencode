@@ -3849,6 +3849,9 @@
                   "icon": {
                     "$ref": "#/components/schemas/ProjectIcon"
                   },
+                  "background": {
+                    "$ref": "#/components/schemas/ProjectBackground"
+                  },
                   "commands": {
                     "$ref": "#/components/schemas/ProjectCommands"
                   }
@@ -3862,6 +3865,86 @@
           {
             "lang": "js",
             "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.project.update({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/project/{projectID}/background": {
+      "get": {
+        "tags": ["project"],
+        "operationId": "project.background",
+        "parameters": [
+          {
+            "name": "projectID",
+            "in": "path",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          },
+          {
+            "name": "directory",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "required": false
+          },
+          {
+            "name": "workspace",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Project background image bytes",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BadRequestError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "ProjectNotFoundError | NotFound",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ProjectNotFoundError"
+                    },
+                    {
+                      "$ref": "#/components/schemas/effect_HttpApiError_NotFound"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "description": "Read the discovered background image configured for a project.",
+        "summary": "Get project background",
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.project.background({\n  ...\n})"
           }
         ]
       }
@@ -20014,6 +20097,9 @@
                       "icon": {
                         "$ref": "#/components/schemas/ProjectIcon"
                       },
+                      "background": {
+                        "$ref": "#/components/schemas/ProjectBackground"
+                      },
                       "commands": {
                         "$ref": "#/components/schemas/ProjectCommands"
                       },
@@ -22741,6 +22827,9 @@
           "icon": {
             "$ref": "#/components/schemas/ProjectIcon"
           },
+          "background": {
+            "$ref": "#/components/schemas/ProjectBackground"
+          },
           "commands": {
             "$ref": "#/components/schemas/ProjectCommands"
           },
@@ -22772,6 +22861,17 @@
           }
         },
         "required": ["_tag", "projectID", "message"],
+        "additionalProperties": false
+      },
+      "effect_HttpApiError_NotFound": {
+        "type": "object",
+        "properties": {
+          "_tag": {
+            "type": "string",
+            "enum": ["NotFound"]
+          }
+        },
+        "required": ["_tag"],
         "additionalProperties": false
       },
       "PtyNotFoundError": {
@@ -24862,6 +24962,64 @@
           },
           "color": {
             "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProjectBackground": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "override": {
+            "type": "string"
+          },
+          "opacity": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "enum": ["NaN"]
+              },
+              {
+                "type": "string",
+                "enum": ["Infinity"]
+              },
+              {
+                "type": "string",
+                "enum": ["-Infinity"]
+              },
+              {
+                "type": "string",
+                "enum": ["Infinity", "-Infinity", "NaN"]
+              }
+            ]
+          },
+          "blur": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "enum": ["NaN"]
+              },
+              {
+                "type": "string",
+                "enum": ["Infinity"]
+              },
+              {
+                "type": "string",
+                "enum": ["-Infinity"]
+              },
+              {
+                "type": "string",
+                "enum": ["Infinity", "-Infinity", "NaN"]
+              }
+            ]
           }
         },
         "additionalProperties": false
@@ -33110,6 +33268,56 @@
         "required": ["id", "type", "data"],
         "additionalProperties": false
       },
+      "ProjectBackground1": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "override": {
+            "type": "string"
+          },
+          "opacity": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "enum": ["NaN"]
+              },
+              {
+                "type": "string",
+                "enum": ["Infinity"]
+              },
+              {
+                "type": "string",
+                "enum": ["-Infinity"]
+              }
+            ]
+          },
+          "blur": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "enum": ["NaN"]
+              },
+              {
+                "type": "string",
+                "enum": ["Infinity"]
+              },
+              {
+                "type": "string",
+                "enum": ["-Infinity"]
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
       "ProjectUpdated": {
         "type": "object",
         "properties": {
@@ -33160,6 +33368,9 @@
               },
               "icon": {
                 "$ref": "#/components/schemas/ProjectIcon"
+              },
+              "background": {
+                "$ref": "#/components/schemas/ProjectBackground1"
               },
               "commands": {
                 "$ref": "#/components/schemas/ProjectCommands"
@@ -36259,6 +36470,56 @@
         "required": ["id", "type", "properties"],
         "additionalProperties": false
       },
+      "ProjectBackground2": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "override": {
+            "type": "string"
+          },
+          "opacity": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "enum": ["NaN"]
+              },
+              {
+                "type": "string",
+                "enum": ["Infinity"]
+              },
+              {
+                "type": "string",
+                "enum": ["-Infinity"]
+              }
+            ]
+          },
+          "blur": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "enum": ["NaN"]
+              },
+              {
+                "type": "string",
+                "enum": ["Infinity"]
+              },
+              {
+                "type": "string",
+                "enum": ["-Infinity"]
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
       "EventProjectUpdated": {
         "type": "object",
         "properties": {
@@ -36287,6 +36548,9 @@
               },
               "icon": {
                 "$ref": "#/components/schemas/ProjectIcon"
+              },
+              "background": {
+                "$ref": "#/components/schemas/ProjectBackground2"
               },
               "commands": {
                 "$ref": "#/components/schemas/ProjectCommands"
