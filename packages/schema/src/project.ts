@@ -15,6 +15,13 @@ export const Icon = Schema.Struct({
   color: optional(Schema.String),
 }).annotate({ identifier: "Project.Icon" })
 export interface Icon extends Schema.Schema.Type<typeof Icon> {}
+export const Background = Schema.Struct({
+  url: optional(Schema.String),
+  override: optional(Schema.String),
+  opacity: optional(NonNegativeInt),
+  blur: optional(NonNegativeInt),
+}).annotate({ identifier: "Project.Background" })
+export interface Background extends Schema.Schema.Type<typeof Background> {}
 export const Commands = Schema.Struct({
   start: optional(
     Schema.String.annotate({ description: "Startup script to run when creating a new workspace (worktree)" }),
@@ -34,6 +41,7 @@ export const Info = Schema.Struct({
   vcs: optional(Vcs),
   name: optional(Schema.String),
   icon: optional(Icon),
+  background: optional(Background),
   commands: optional(Commands),
   time: Time,
   sandboxes: Schema.Array(Schema.String),
