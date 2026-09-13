@@ -56,6 +56,7 @@ import { ConstrainDragXAxis, getDraggableId } from "@/utils/solid-dnd"
 import { DebugBar } from "@/components/debug-bar"
 import { TabsInfoPopup } from "@/components/help-button"
 import { Titlebar, type TitlebarUpdate } from "@/components/titlebar"
+import { ProjectBackground } from "@/components/project-background"
 import { useDirectoryPicker } from "@/components/directory-picker"
 import { ServerConnection, useServer } from "@/context/server"
 import { useLanguage, type Locale } from "@/context/language"
@@ -2248,6 +2249,7 @@ export default function LegacyLayout(props: ParentProps) {
   return (
     <div class="relative bg-background-base flex-1 min-h-0 min-w-0 flex flex-col select-none [&_input]:select-text [&_textarea]:select-text [&_[contenteditable]]:select-text">
       {autoselecting() ?? ""}
+      <ProjectBackground project={currentProject()} />
       <Titlebar
         update={titlebarUpdate}
         debugTools={

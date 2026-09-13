@@ -443,6 +443,11 @@ export const dict = {
   "dialog.project.edit.icon.alt": "Projektikon",
   "dialog.project.edit.icon.hint": "Klik eller træk et billede",
   "dialog.project.edit.icon.recommended": "Anbefalet: 128x128px",
+  "dialog.project.edit.background": "Background",
+  "dialog.project.edit.background.hint": "Click or drag an image",
+  "dialog.project.edit.background.recommended": "Recommended: 2560px wide",
+  "dialog.project.edit.background.opacity": "Opacity",
+  "dialog.project.edit.background.blur": "Blur",
   "dialog.project.edit.color": "Farve",
   "dialog.project.edit.color.select": "Vælg farven {{color}}",
 
@@ -1126,6 +1131,7 @@ export const dict = {
   "error.childStore.persistedCacheCreateFailed": "Kunne ikke oprette vedvarende cache",
   "error.childStore.persistedProjectMetadataCreateFailed": "Kunne ikke oprette vedvarende projektmetadata",
   "error.childStore.persistedProjectIconCreateFailed": "Kunne ikke oprette vedvarende projektikon",
+  "error.childStore.persistedProjectBackgroundCreateFailed": "Failed to create persisted project background",
   "error.childStore.storeCreateFailed": "Kunne ikke oprette lager",
   "terminal.connectionLost.abnormalClose": "WebSocket lukkede unormalt: {{code}}",
 

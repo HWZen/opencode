@@ -110,6 +110,87 @@ export function DialogEditProject(props: { project: LocalProject; server: Server
             </div>
           </div>
 
+          <div class="flex flex-col gap-2">
+            <label class="text-12-medium text-text-weak">{language.t("dialog.project.edit.background")}</label>
+            <div class="flex flex-col gap-2">
+              <div
+                class="relative h-24 rounded-md border overflow-hidden transition-colors cursor-pointer"
+                classList={{
+                  "border-text-interactive-base bg-surface-info-base/20": model.store.backgroundDragOver,
+                  "border-border-base hover:border-border-strong": !model.store.backgroundDragOver,
+                  "bg-surface-base": !model.store.backgroundOverride,
+                }}
+                onMouseEnter={() => model.setStore("backgroundHover", true)}
+                onMouseLeave={() => model.setStore("backgroundHover", false)}
+                onDrop={model.backgroundDrop}
+                onDragOver={model.backgroundDragOver}
+                onDragLeave={model.backgroundDragLeave}
+                onClick={model.backgroundClick}
+              >
+                <Show when={model.store.backgroundOverride}>
+                  {(src) => (
+                    <img
+                      src={src()}
+                      alt={language.t("dialog.project.edit.background")}
+                      class="size-full object-cover"
+                    />
+                  )}
+                </Show>
+                <div
+                  class="absolute inset-0 bg-surface-raised-stronger-non-alpha/90 z-10 pointer-events-none flex items-center justify-center transition-opacity"
+                  classList={{
+                    "opacity-100": model.store.backgroundHover,
+                    "opacity-0": !model.store.backgroundHover,
+                  }}
+                >
+                  <Icon
+                    name={model.store.backgroundOverride ? "trash" : "cloud-upload"}
+                    size="large"
+                    class="text-icon-on-interactive-base drop-shadow-sm"
+                  />
+                </div>
+                <input
+                  id="background-upload"
+                  ref={(el) => {
+                    model.setBackgroundInput(el)
+                  }}
+                  type="file"
+                  accept="image/*"
+                  class="hidden"
+                  onChange={model.backgroundInputChange}
+                />
+              </div>
+              <div class="flex flex-col gap-1.5 text-12-regular text-text-weak">
+                <span>{language.t("dialog.project.edit.background.hint")}</span>
+                <span>{language.t("dialog.project.edit.background.recommended")}</span>
+              </div>
+              <div class="grid grid-cols-2 gap-3">
+                <label class="flex flex-col gap-1 text-12-regular text-text-weak">
+                  <span>{language.t("dialog.project.edit.background.opacity")}</span>
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    value={model.store.backgroundOpacity ?? 12}
+                    onInput={(event) => model.setStore("backgroundOpacity", Number(event.currentTarget.value))}
+                    class="w-full"
+                  />
+                </label>
+                <label class="flex flex-col gap-1 text-12-regular text-text-weak">
+                  <span>{language.t("dialog.project.edit.background.blur")}</span>
+                  <input
+                    type="range"
+                    min={0}
+                    max={40}
+                    value={model.store.backgroundBlur ?? 0}
+                    onInput={(event) => model.setStore("backgroundBlur", Number(event.currentTarget.value))}
+                    class="w-full"
+                  />
+                </label>
+              </div>
+            </div>
+          </div>
+
           <Show when={!model.store.iconOverride}>
             <div class="flex flex-col gap-2">
               <label class="text-12-medium text-text-weak">{language.t("dialog.project.edit.color")}</label>

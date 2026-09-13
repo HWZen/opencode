@@ -555,6 +555,11 @@ export const dict = {
   "dialog.project.edit.icon.alt": "專案圖示",
   "dialog.project.edit.icon.hint": "按一下或拖曳圖片",
   "dialog.project.edit.icon.recommended": "建議：128x128px",
+  "dialog.project.edit.background": "背景",
+  "dialog.project.edit.background.hint": "點擊或拖曳圖片",
+  "dialog.project.edit.background.recommended": "建議寬度 2560px",
+  "dialog.project.edit.background.opacity": "不透明度",
+  "dialog.project.edit.background.blur": "模糊",
   "dialog.project.edit.color": "顏色",
   "dialog.project.edit.color.select": "選擇{{color}}顏色",
 
@@ -1218,6 +1223,7 @@ export const dict = {
   "error.childStore.persistedCacheCreateFailed": "建立持續性快取失敗",
   "error.childStore.persistedProjectMetadataCreateFailed": "建立持續性專案中繼資料失敗",
   "error.childStore.persistedProjectIconCreateFailed": "建立持續性專案圖示失敗",
+  "error.childStore.persistedProjectBackgroundCreateFailed": "建立持久化專案背景快取失敗",
   "error.childStore.storeCreateFailed": "建立儲存區失敗",
   "terminal.connectionLost.abnormalClose": "WebSocket 異常關閉：{{code}}",
 } satisfies Partial<Record<Keys, string>>

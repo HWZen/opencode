@@ -47,6 +47,7 @@ function directoryState() {
     project: "",
     projectMeta: undefined,
     icon: undefined,
+    background: undefined,
     provider_ready: true,
     provider,
     config: {},

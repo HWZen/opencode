@@ -40,6 +40,7 @@ import { showToast } from "@/utils/toast"
 import { base64Encode, checksum } from "@opencode-ai/core/util/encode"
 import { useLocation, useNavigate, useParams, useSearchParams } from "@solidjs/router"
 import { NewSessionView, SessionHeader } from "@/components/session"
+import { ProjectBackground } from "@/components/project-background"
 import { ErrorPage } from "@/pages/error"
 import { CommentsProvider, useComments } from "@/context/comments"
 import { useCommand } from "@/context/command"
@@ -164,6 +165,7 @@ export function TargetSessionRouteContent() {
     // Settings must keep the target-server SDK, sync, and models context and remain registered
     // when session content falls back to the route error boundary.
     <TargetServerScopedProviders directory={directory} sessionID={() => params.id}>
+      <ProjectBackground directory={directory()} />
       <TargetSessionSettingsCommand />
       <SessionRouteErrorBoundary sessionID={params.id} serverKey={requireServerKey(params.serverKey)} padded>
         <ResolvedTargetSessionRoute />

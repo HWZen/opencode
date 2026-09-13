@@ -453,9 +453,10 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
       // Without this, different subdirectories of the same git repo would share the same
       // icon from the database instead of using their individual overrides.
       const base = { ...metadata, ...project }
-      if (childStore.icon) {
-        return { ...base, icon: { ...base.icon, override: childStore.icon } }
-      }
+      const icon = childStore.icon ? { ...base.icon, override: childStore.icon } : base.icon
+      const stored = childStore.background ?? childStore.projectMeta?.background
+      const background = stored ? { ...base.background, ...stored } : base.background
+      if (icon !== base.icon || background !== base.background) return { ...base, icon, background }
       return base
     }
 

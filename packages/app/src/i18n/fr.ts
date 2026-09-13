@@ -537,6 +537,11 @@ export const dict = {
   "dialog.project.edit.icon.alt": "Icône du projet",
   "dialog.project.edit.icon.hint": "Cliquez ou faites glisser une image",
   "dialog.project.edit.icon.recommended": "Recommandé : 128x128px",
+  "dialog.project.edit.background": "Background",
+  "dialog.project.edit.background.hint": "Click or drag an image",
+  "dialog.project.edit.background.recommended": "Recommended: 2560px wide",
+  "dialog.project.edit.background.opacity": "Opacity",
+  "dialog.project.edit.background.blur": "Blur",
   "dialog.project.edit.color": "Couleur",
   "dialog.project.edit.color.select": "Sélectionner la couleur {{color}}",
   "dialog.project.edit.worktree.startup": "Script de démarrage de l'espace de travail",
@@ -1188,6 +1193,7 @@ export const dict = {
   "error.childStore.persistedProjectMetadataCreateFailed":
     "Échec de la création des métadonnées de projet persistantes",
   "error.childStore.persistedProjectIconCreateFailed": "Échec de la création de l'icône de projet persistante",
+  "error.childStore.persistedProjectBackgroundCreateFailed": "Failed to create persisted project background",
   "error.childStore.storeCreateFailed": "Échec de la création du stockage",
   "terminal.connectionLost.abnormalClose": "WebSocket fermé anormalement : {{code}}",
   "terminal.connectTicket.csrfError":

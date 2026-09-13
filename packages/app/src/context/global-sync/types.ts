@@ -19,12 +19,19 @@ import type { CommandInfo, McpResource, McpServer, SessionMessageInfo } from "@o
 import type { Accessor } from "solid-js"
 import type { SetStoreFunction, Store } from "solid-js/store"
 
+export type ProjectBackgroundMeta = {
+  override?: string
+  opacity?: number
+  blur?: number
+}
+
 export type ProjectMeta = {
   name?: string
   icon?: {
     override?: string
     color?: string
   }
+  background?: ProjectBackgroundMeta
   commands?: {
     start?: string
   }
@@ -38,6 +45,7 @@ export type State = {
   project: string
   projectMeta: ProjectMeta | undefined
   icon: string | undefined
+  background: ProjectBackgroundMeta | undefined
   provider_ready: boolean
   provider: NormalizedProviderListResponse
   config: Config
@@ -100,6 +108,12 @@ export type MetaCache = {
 export type IconCache = {
   store: Store<{ value: string | undefined }>
   setStore: SetStoreFunction<{ value: string | undefined }>
+  ready: Accessor<boolean>
+}
+
+export type BackgroundCache = {
+  store: Store<{ value: ProjectBackgroundMeta | undefined }>
+  setStore: SetStoreFunction<{ value: ProjectBackgroundMeta | undefined }>
   ready: Accessor<boolean>
 }
 

@@ -153,12 +153,16 @@ export function normalizeProviderList(
 }
 
 export function sanitizeProject(project: Project) {
-  if (!project.icon?.url && !project.icon?.override) return project
+  if (!project.icon?.url && !project.icon?.override && !project.background?.override) return project
   return {
     ...project,
     icon: {
       ...project.icon,
       url: undefined,
+      override: undefined,
+    },
+    background: {
+      ...project.background,
       override: undefined,
     },
   }

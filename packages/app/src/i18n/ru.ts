@@ -560,6 +560,11 @@ export const dict = {
   "dialog.project.edit.icon.alt": "Значок проекта",
   "dialog.project.edit.icon.hint": "Нажмите или перетащите изображение",
   "dialog.project.edit.icon.recommended": "Рекомендуется: 128 x 128 пикселей",
+  "dialog.project.edit.background": "Background",
+  "dialog.project.edit.background.hint": "Click or drag an image",
+  "dialog.project.edit.background.recommended": "Recommended: 2560px wide",
+  "dialog.project.edit.background.opacity": "Opacity",
+  "dialog.project.edit.background.blur": "Blur",
   "dialog.project.edit.color": "Цвет",
   "dialog.project.edit.color.select": "Выбрать цвет {{color}}",
 
@@ -1257,6 +1262,7 @@ export const dict = {
   "error.childStore.persistedCacheCreateFailed": "Не удалось создать постоянный кеш",
   "error.childStore.persistedProjectMetadataCreateFailed": "Не удалось создать постоянные метаданные проекта",
   "error.childStore.persistedProjectIconCreateFailed": "Не удалось создать постоянный значок проекта",
+  "error.childStore.persistedProjectBackgroundCreateFailed": "Failed to create persisted project background",
   "error.childStore.storeCreateFailed": "Не удалось создать хранилище",
   "terminal.connectionLost.abnormalClose": "WebSocket закрыт аварийно: {{code}}",
 }

@@ -5,10 +5,12 @@ import type { VcsInfo } from "@opencode-ai/sdk/v2/client"
 import {
   DIR_IDLE_TTL_MS,
   MAX_DIR_STORES,
+  type BackgroundCache,
   type ChildOptions,
   type DirState,
   type IconCache,
   type MetaCache,
+  type ProjectBackgroundMeta,
   type ProjectMeta,
   type State,
   type VcsCache,
@@ -39,6 +41,7 @@ export function createChildStoreManager(input: {
   const vcsCache = new Map<string, VcsCache>()
   const metaCache = new Map<string, MetaCache>()
   const iconCache = new Map<string, IconCache>()
+  const backgroundCache = new Map<string, BackgroundCache>()
   const lifecycle = new Map<string, DirState>()
   const pins = new Map<string, number>()
   const ownerPins = new WeakMap<object, Set<string>>()
@@ -117,6 +120,7 @@ export function createChildStoreManager(input: {
     vcsCache.delete(key)
     metaCache.delete(key)
     iconCache.delete(key)
+    backgroundCache.delete(key)
     lifecycle.delete(key)
     mcpDirectories.delete(key)
     mcpToggles.delete(key)
@@ -181,10 +185,20 @@ export function createChildStoreManager(input: {
       if (!icon) throw new Error(input.translate("error.childStore.persistedProjectIconCreateFailed"))
       iconCache.set(key, { store: icon[0], setStore: icon[1], ready: icon[3] })
 
+      const background = runWithOwner(input.owner, () =>
+        input.persist(
+          Persist.serverWorkspace(input.scope, directory, "background", ["background.v1"]),
+          createStore({ value: undefined as ProjectBackgroundMeta | undefined }),
+        ),
+      )
+      if (!background) throw new Error(input.translate("error.childStore.persistedProjectBackgroundCreateFailed"))
+      backgroundCache.set(key, { store: background[0], setStore: background[1], ready: background[3] })
+
       const init = () =>
         createRoot((dispose) => {
           const initialMeta = meta[0].value
           const initialIcon = icon[0].value
+          const initialBackground = background[0].value
           const [mcpEnabled, setMcpEnabled] = createSignal(false)
           const [instanceQueriesEnabled, setInstanceQueriesEnabled] = createSignal(false)
 
@@ -205,6 +219,7 @@ export function createChildStoreManager(input: {
             project: "",
             projectMeta: initialMeta,
             icon: initialIcon,
+            background: initialBackground,
             get provider_ready() {
               return instanceQueriesEnabled() && !providerQuery.isLoading
             },
@@ -286,6 +301,11 @@ export function createChildStoreManager(input: {
           onPersistedInit(icon[2], () => {
             if (child[0].icon !== initialIcon) return
             child[1]("icon", icon[0].value)
+          })
+
+          onPersistedInit(background[2], () => {
+            if (child[0].background !== initialBackground) return
+            child[1]("background", background[0].value)
           })
         })
 
@@ -373,6 +393,16 @@ export function createChildStoreManager(input: {
     setStore("icon", value)
   }
 
+  function projectBackground(directory: string, value: ProjectBackgroundMeta | undefined) {
+    const key = directoryKey(directory)
+    const [store, setStore] = ensureChild(directory)
+    const cached = backgroundCache.get(key)
+    if (!cached) return
+    if (store.background === value) return
+    cached.setStore("value", value)
+    setStore("background", value)
+  }
+
   return {
     children,
     ensureChild,
@@ -380,6 +410,7 @@ export function createChildStoreManager(input: {
     peek,
     projectMeta,
     projectIcon,
+    projectBackground,
     mark,
     pin,
     unpin,
@@ -392,5 +423,6 @@ export function createChildStoreManager(input: {
     vcsCache,
     metaCache,
     iconCache,
+    backgroundCache,
   }
 }

@@ -92,6 +92,79 @@ export function DialogEditProjectV2(props: { project: LocalProject; server: Serv
             </div>
           </div>
 
+          <div class="flex w-full flex-col gap-2">
+            <div class="select-none text-[13px] font-[530] leading-none tracking-[-0.04px] text-v2-text-text-base">
+              {language.t("dialog.project.edit.background")}
+            </div>
+            <div class="flex flex-col gap-2">
+              <button
+                type="button"
+                aria-label={language.t("dialog.project.edit.background")}
+                class="relative h-24 w-full cursor-pointer overflow-hidden rounded-[6px] outline outline-1 outline-transparent transition-[background-color,outline-color] focus-visible:outline-v2-border-border-focus"
+                classList={{
+                  "bg-v2-overlay-simple-overlay-hover outline-v2-border-border-focus": model.store.backgroundDragOver,
+                  "bg-v2-overlay-simple-overlay-hover/50": !model.store.backgroundOverride,
+                }}
+                onMouseEnter={() => model.setStore("backgroundHover", true)}
+                onMouseLeave={() => model.setStore("backgroundHover", false)}
+                onDrop={model.backgroundDrop}
+                onDragOver={model.backgroundDragOver}
+                onDragLeave={model.backgroundDragLeave}
+                onClick={model.backgroundClick}
+              >
+                <Show when={model.store.backgroundOverride}>
+                  {(src) => <img src={src()} alt="" class="absolute inset-0 size-full object-cover" />}
+                </Show>
+                <span
+                  class="pointer-events-none absolute inset-0 flex items-center justify-center bg-v2-background-bg-contrast/80 text-v2-icon-icon-contrast backdrop-blur-[2px] transition-opacity"
+                  classList={{
+                    "opacity-100": model.store.backgroundHover,
+                    "opacity-0": !model.store.backgroundHover,
+                  }}
+                >
+                  <Icon name={model.store.backgroundOverride ? "close" : "outline-share"} />
+                </span>
+              </button>
+              <input
+                ref={(element) => {
+                  model.setBackgroundInput(element)
+                }}
+                type="file"
+                accept="image/*"
+                class="hidden"
+                onChange={model.backgroundInputChange}
+              />
+              <div class="flex select-none flex-col gap-[6px] text-[11px] font-[440] leading-none tracking-[0.05px] text-v2-text-text-muted">
+                <span>{language.t("dialog.project.edit.background.hint")}</span>
+                <span>{language.t("dialog.project.edit.background.recommended")}</span>
+              </div>
+              <div class="grid grid-cols-2 gap-3">
+                <label class="flex select-none flex-col gap-[6px] text-[11px] font-[440] leading-none tracking-[0.05px] text-v2-text-text-muted">
+                  <span>{language.t("dialog.project.edit.background.opacity")}</span>
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    value={model.store.backgroundOpacity ?? 12}
+                    onInput={(event) => model.setStore("backgroundOpacity", Number(event.currentTarget.value))}
+                    class="w-full"
+                  />
+                </label>
+                <label class="flex select-none flex-col gap-[6px] text-[11px] font-[440] leading-none tracking-[0.05px] text-v2-text-text-muted">
+                  <span>{language.t("dialog.project.edit.background.blur")}</span>
+                  <input
+                    type="range"
+                    min={0}
+                    max={40}
+                    value={model.store.backgroundBlur ?? 0}
+                    onInput={(event) => model.setStore("backgroundBlur", Number(event.currentTarget.value))}
+                    class="w-full"
+                  />
+                </label>
+              </div>
+            </div>
+          </div>
+
           <Show when={!model.store.iconOverride}>
             <div class="flex w-full flex-col gap-2">
               <div class="select-none text-[13px] font-[530] leading-none tracking-[-0.04px] text-v2-text-text-base">
