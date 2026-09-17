@@ -96,6 +96,19 @@ const toPlatformError = (
 
 type ExitSignal = Deferred.Deferred<readonly [code: number | null, signal: NodeJS.Signals | null]>
 
+/**
+ * After the direct child exits, callers may keep reading the inherited stdio pipes for at
+ * most this long. A descendant process that inherited those pipes keeps them open, so the
+ * stream never reaches EOF; once the window expires the read is stopped and the output
+ * captured so far is returned.
+ *
+ * Overridable via `OPENCODE_POST_EXIT_GRACE_MS`.
+ */
+export const POST_EXIT_GRACE_MS = (() => {
+  const raw = Number(process.env.OPENCODE_POST_EXIT_GRACE_MS)
+  return Number.isFinite(raw) && raw >= 0 ? raw : 1000
+})()
+
 export const make = Effect.gen(function* () {
   const fs = yield* FileSystem.FileSystem
   const path = yield* Path.Path
@@ -270,16 +283,24 @@ export const make = Effect.gen(function* () {
       const proc = launch(command.command, command.args, opts)
       let end = false
       let exit: readonly [code: number | null, signal: NodeJS.Signals | null] | undefined
+      const settle = (args: readonly [code: number | null, signal: NodeJS.Signals | null]) => {
+        if (end) return
+        end = true
+        Deferred.doneUnsafe(signal, Exit.succeed(args))
+      }
       proc.on("error", (err) => {
         resume(Effect.fail(toPlatformError("spawn", err, command)))
       })
+      // `exit` means the direct child is gone. Completion must not wait for stdio to close:
+      // a descendant that inherited the pipes can keep them open indefinitely.
       proc.on("exit", (...args) => {
         exit = args
+        settle(args)
       })
+      // `close` still wins as a fallback when `exit` never fires, and reports the recorded
+      // `exit` args so code/signal stay consistent.
       proc.on("close", (...args) => {
-        if (end) return
-        end = true
-        Deferred.doneUnsafe(signal, Exit.succeed(exit ?? args))
+        settle(exit ?? args)
       })
       proc.on("spawn", () => {
         resume(Effect.succeed([proc, signal]))

@@ -1,8 +1,9 @@
 import { PermissionV1 } from "@opencode-ai/core/v1/permission"
 import { describe, expect } from "bun:test"
 import { LayerNode } from "@opencode-ai/core/effect/layer-node"
-import { Cause, Effect, Exit, Layer } from "effect"
+import { Cause, Effect, Exit, Layer, Stream } from "effect"
 import type * as Scope from "effect/Scope"
+import { ChildProcessSpawner } from "effect/unstable/process"
 import os from "os"
 import path from "path"
 import { Config } from "@/config/config"
@@ -1193,6 +1194,138 @@ describe("tool.shell truncation", () => {
         expect(lines.length).toBe(lineCount)
         expect(lines[0]).toBe("1")
         expect(lines[lineCount - 1]).toBe(String(lineCount))
+      }),
+    ),
+  )
+})
+
+describe("tool.shell completion", () => {
+  // A handle whose process already exited but whose stdio never reaches EOF: the exact shape
+  // of the hang (descendant inherited the pipe) without depending on OS pipe inheritance.
+  const encoder = new TextEncoder()
+  const neverEnds = Stream.make(encoder.encode("STARTED")).pipe(Stream.concat(Stream.never))
+  const stub = { [Symbol.for("effect/Sink/TypeId")]: Symbol.for("effect/Sink/TypeId") } as any
+  const mockSpawner = Layer.succeed(
+    ChildProcessSpawner.ChildProcessSpawner,
+    ChildProcessSpawner.make(
+      Effect.fnUntraced(function* () {
+        return ChildProcessSpawner.makeHandle({
+          pid: ChildProcessSpawner.ProcessId(0),
+          exitCode: Effect.succeed(ChildProcessSpawner.ExitCode(0)),
+          isRunning: Effect.succeed(false),
+          kill: () => Effect.void,
+          stdin: stub,
+          stdout: neverEnds,
+          stderr: Stream.empty,
+          all: neverEnds,
+          getInputFd: () => stub,
+          getOutputFd: () => Stream.empty,
+          unref: Effect.succeed(Effect.void),
+        })
+      }),
+    ),
+  )
+  const mockLayer = Layer.mergeAll(
+    LayerNode.compile(
+      LayerNode.group([CrossSpawnSpawner.node, FSUtil.node, Plugin.node, Truncate.node, Config.node, Agent.node, RuntimeFlags.node]),
+      [[CrossSpawnSpawner.node, mockSpawner]],
+    ),
+    testInstanceStoreLayer,
+  )
+  const mockIt = testEffect(mockLayer)
+
+  const reap = (pidFile: string) =>
+    Effect.gen(function* () {
+      const fs = yield* FSUtil.Service
+      const raw = yield* fs.readFileString(pidFile).pipe(Effect.catch(() => Effect.succeed("0")))
+      const pid = Number(raw.trim())
+      if (!pid) return
+      yield* Effect.sync(() => {
+        try {
+          process.kill(pid)
+        } catch {}
+      })
+    })
+
+  mockIt.live(
+    "returns once the process exits even though stdio never reaches EOF",
+    () =>
+      runIn(
+        projectRoot,
+        Effect.gen(function* () {
+          const start = Date.now()
+          const result = yield* run({
+            command: "ignored",
+            timeout: 30_000,
+          })
+          const elapsed = Date.now() - start
+
+          expect(result.output).toContain("STARTED")
+          expect(result.metadata.exit).toBe(0)
+          expect(result.output).not.toContain("exceeding timeout")
+          // Bounded by POST_EXIT_GRACE_MS (1s) instead of waiting for EOF forever.
+          expect(elapsed).toBeLessThan(5_000)
+        }),
+      ),
+  )
+
+  if (process.platform === "win32") {
+    // Real reproduction: PowerShell hands raw inherited handles to a Start-Process descendant,
+    // which keeps the shell's stdout/stderr pipes open after PowerShell itself exits. `close`
+    // never fires, so only the exit-anchored grace can finish the call.
+    it.live(
+      "returns when a detached descendant keeps the shell's pipe open",
+      () =>
+        Effect.gen(function* () {
+          const tmp = yield* tmpdirScoped()
+          const fs = yield* FSUtil.Service
+          const daemon = path.join(tmp, "daemon.cjs")
+          const pidFile = path.join(tmp, "daemon.pid")
+          const script = path.join(tmp, "start.ps1")
+          yield* fs.writeFileString(daemon, "setInterval(() => {}, 1000)\n")
+          yield* fs.writeFileString(
+            script,
+            [
+              `$p = Start-Process -FilePath '${process.execPath.replaceAll("\\", "/")}' -ArgumentList '${daemon.replaceAll("\\", "/")}' -NoNewWindow -PassThru`,
+              `Set-Content -Path '${pidFile.replaceAll("\\", "/")}' -Value $p.Id`,
+              `Write-Output 'STARTED'`,
+            ].join("\n"),
+          )
+
+          yield* runIn(
+            tmp,
+            Effect.gen(function* () {
+              const start = Date.now()
+              const text = `${quote("powershell.exe")} -NoProfile -ExecutionPolicy Bypass -File ${quote(script)}`
+              const result = yield* run({
+                command: PS.has(sh()) ? `& ${text}` : text,
+                timeout: 30_000,
+              })
+              const elapsed = Date.now() - start
+
+              expect(result.output).toContain("STARTED")
+              expect(result.metadata.exit).toBe(0)
+              expect(result.output).not.toContain("exceeding timeout")
+              // Bounded by POST_EXIT_GRACE_MS (1s), not by the descendant's lifetime or the
+              // 30s command timeout.
+              expect(elapsed).toBeLessThan(15_000)
+            }).pipe(Effect.ensuring(reap(pidFile))),
+          )
+        }),
+      30_000,
+    )
+  }
+
+  it.live("keeps the full output of a normally exiting command", () =>
+    runIn(
+      projectRoot,
+      Effect.gen(function* () {
+        const result = yield* run({
+          command: fill("lines", 300),
+        })
+        const lines = result.output.trim().split(/\r?\n/)
+        expect(lines.length).toBe(300)
+        expect(lines[lines.length - 1]).toBe("300")
       }),
     ),
   )

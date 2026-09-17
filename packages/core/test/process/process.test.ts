@@ -3,10 +3,11 @@ import fs from "fs/promises"
 import { realpathSync } from "node:fs"
 import { tmpdir } from "node:os"
 import path from "node:path"
-import { Effect, Exit, Fiber, Stream } from "effect"
-import { ChildProcess } from "effect/unstable/process"
+import { Effect, Exit, Fiber, Layer, Stream } from "effect"
+import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process"
 import { LayerNode } from "@opencode-ai/core/effect/layer-node"
 import { AppProcess } from "@opencode-ai/core/process"
+import { CrossSpawnSpawner } from "@opencode-ai/core/cross-spawn-spawner"
 import { testEffect } from "../lib/effect"
 
 const it = testEffect(LayerNode.compile(AppProcess.node))
@@ -363,6 +364,50 @@ describe("AppProcess", () => {
           yield* handle.kill()
         }),
       ),
+    )
+  })
+
+  describe("completion anchored to process exit", () => {
+    // A handle whose process already exited but whose stdio never reaches EOF: the exact shape
+    // of the hang (a descendant inherited the pipe) without depending on OS pipe inheritance.
+    const encoder = new TextEncoder()
+    const neverEnds = Stream.make(encoder.encode("done")).pipe(Stream.concat(Stream.never))
+    const stub = { [Symbol.for("effect/Sink/TypeId")]: Symbol.for("effect/Sink/TypeId") } as any
+    const mockSpawner = Layer.succeed(
+      ChildProcessSpawner.ChildProcessSpawner,
+      ChildProcessSpawner.make(
+        Effect.fnUntraced(function* () {
+          return ChildProcessSpawner.makeHandle({
+            pid: ChildProcessSpawner.ProcessId(0),
+            exitCode: Effect.succeed(ChildProcessSpawner.ExitCode(0)),
+            isRunning: Effect.succeed(false),
+            kill: () => Effect.void,
+            stdin: stub,
+            stdout: neverEnds,
+            stderr: Stream.empty,
+            all: neverEnds,
+            getInputFd: () => stub,
+            getOutputFd: () => Stream.empty,
+            unref: Effect.succeed(Effect.void),
+          })
+        }),
+      ),
+    )
+    const mock = testEffect(LayerNode.compile(AppProcess.node, [[CrossSpawnSpawner.node, mockSpawner]]))
+
+    mock.live(
+      "returns once the process exits even though stdio never reaches EOF",
+      Effect.gen(function* () {
+        const svc = yield* AppProcess.Service
+        const start = Date.now()
+        const result = yield* svc.run(cmd("-e", "ignored"), { combineOutput: true })
+        const elapsed = Date.now() - start
+
+        expect(result.exitCode).toBe(0)
+        expect(result.output?.toString("utf8")).toContain("done")
+        // Bounded by POST_EXIT_GRACE_MS (1s) instead of waiting for EOF forever.
+        expect(elapsed).toBeLessThan(5_000)
+      }),
     )
   })
 })

@@ -423,4 +423,72 @@ describe("cross-spawn spawner", () => {
       }),
     )
   })
+
+  describe("completion anchored to process exit", () => {
+    fx.live(
+      "resolves exitCode when a descendant keeps the inherited pipe open after the direct child exits",
+      Effect.gen(function* () {
+        const tmp = yield* Effect.acquireRelease(
+          Effect.promise(() => tmpdir()),
+          (tmp) => Effect.promise(() => tmp[Symbol.asyncDispose]()),
+        )
+        const pidFile = path.join(tmp.path, "descendant.pid")
+        const daemon = path.join(tmp.path, "daemon.cjs")
+        yield* Effect.promise(() => fs.writeFile(daemon, "setInterval(() => {}, 1000)\n"))
+
+        const child =
+          process.platform === "win32"
+            ? {
+                // `Start-Process` hands the raw inherited handles to the descendant, which keeps
+                // the parent's stdout/stderr pipes open after the direct child exits.
+                file: "powershell.exe",
+                args: [
+                  "-NoProfile",
+                  "-Command",
+                  `$p = Start-Process -FilePath '${process.execPath.replaceAll("\\", "/")}' -ArgumentList '${daemon.replaceAll("\\", "/")}' -NoNewWindow -PassThru; Set-Content -Path '${pidFile}' -Value $p.Id; Write-Output DONE`,
+                ],
+              }
+            : {
+                file: process.execPath,
+                args: [
+                  "-e",
+                  [
+                    'const cp = require("node:child_process")',
+                    'const fs = require("node:fs")',
+                    'const d = cp.spawn(process.execPath, [process.argv[1]], { stdio: ["ignore", "inherit", "inherit"] })',
+                    "d.unref()",
+                    `fs.writeFileSync(${JSON.stringify(pidFile)}, String(d.pid))`,
+                    'process.stdout.write("DONE")',
+                  ].join(";"),
+                  daemon,
+                ],
+              }
+
+        const handle = yield* ChildProcess.make(child.file, child.args, {
+          stdin: "ignore",
+          stdout: "pipe",
+          stderr: "pipe",
+        })
+
+        const start = Date.now()
+        const exit = yield* handle.exitCode
+        const elapsed = Date.now() - start
+
+        const pid = Number(yield* Effect.promise(() => fs.readFile(pidFile, "utf8").catch(() => "0")))
+        if (pid) {
+          yield* Effect.sync(() => {
+            try {
+              process.kill(pid)
+            } catch {}
+          })
+        }
+
+        expect(exit).toBe(ChildProcessSpawner.ExitCode(0))
+        // Without settling on `exit`, this never resolves: the descendant holds the pipe, so
+        // `close` never fires. The generous bound only absorbs slow process startup.
+        expect(elapsed).toBeLessThan(15_000)
+      }),
+      25_000,
+    )
+  })
 })

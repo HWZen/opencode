@@ -1,8 +1,8 @@
-import { Context, Duration, Effect, Fiber, Layer, Schema, Stream } from "effect"
+import { Context, Duration, Effect, Fiber, Layer, Ref, Schema, Stream } from "effect"
 import type { PlatformError } from "effect/PlatformError"
 import { ChildProcess } from "effect/unstable/process"
-import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner"
-import { CrossSpawnSpawner } from "./cross-spawn-spawner"
+import { ChildProcessSpawner, type ChildProcessHandle } from "effect/unstable/process/ChildProcessSpawner"
+import { CrossSpawnSpawner, POST_EXIT_GRACE_MS } from "./cross-spawn-spawner"
 import { makeGlobalNode } from "./effect/app-node"
 
 export class AppProcessError extends Schema.TaggedErrorClass<AppProcessError>()("AppProcessError", {
@@ -118,23 +118,53 @@ const normalizeStdin = (
       ? Stream.make(input)
       : input
 
+type Acc = { chunks: Uint8Array[]; bytes: number; truncated: boolean }
+
+const pushChunk = (acc: Acc, chunk: Uint8Array, maxOutputBytes: number | undefined): Acc => {
+  if (maxOutputBytes === undefined) {
+    acc.chunks.push(chunk)
+    acc.bytes += chunk.length
+    return acc
+  }
+  const remaining = maxOutputBytes - acc.bytes
+  if (remaining > 0) acc.chunks.push(remaining >= chunk.length ? chunk : chunk.slice(0, remaining))
+  acc.bytes += chunk.length
+  acc.truncated = acc.truncated || acc.bytes > maxOutputBytes
+  return acc
+}
+
 export const collectStream = (stream: Stream.Stream<Uint8Array, PlatformError>, maxOutputBytes: number | undefined) =>
   Stream.runFold(
     stream,
-    () => ({ chunks: [] as Uint8Array[], bytes: 0, truncated: false }),
-    (acc, chunk) => {
-      if (maxOutputBytes === undefined) {
-        acc.chunks.push(chunk)
-        acc.bytes += chunk.length
-        return acc
-      }
-      const remaining = maxOutputBytes - acc.bytes
-      if (remaining > 0) acc.chunks.push(remaining >= chunk.length ? chunk : chunk.slice(0, remaining))
-      acc.bytes += chunk.length
-      acc.truncated = acc.truncated || acc.bytes > maxOutputBytes
-      return acc
-    },
+    (): Acc => ({ chunks: [] as Uint8Array[], bytes: 0, truncated: false }),
+    (acc, chunk) => pushChunk(acc, chunk, maxOutputBytes),
   ).pipe(Effect.map((x) => ({ buffer: Buffer.concat(x.chunks), truncated: x.truncated })))
+
+/**
+ * Like collectStream, but anchored to process exit instead of pipe EOF: a descendant that
+ * inherited the stdio pipe (dev server, daemon, background child) keeps it open, so waiting
+ * for EOF can block forever. Output is read concurrently, EOF is still preferred, and the
+ * read is stopped at most POST_EXIT_GRACE_MS after the direct child exits.
+ */
+export const collectBounded = (
+  handle: ChildProcessHandle,
+  stream: Stream.Stream<Uint8Array, PlatformError>,
+  maxOutputBytes: number | undefined,
+) =>
+  Effect.gen(function* () {
+    const acc = yield* Ref.make<Acc>({ chunks: [], bytes: 0, truncated: false })
+    const reader = yield* Effect.forkScoped(
+      Stream.runForEach(stream, (chunk) => Ref.update(acc, (a) => pushChunk(a, chunk, maxOutputBytes))),
+    )
+    yield* handle.exitCode.pipe(Effect.ignore)
+    yield* Effect.raceAll([
+      Fiber.join(reader).pipe(Effect.asVoid, Effect.ignore),
+      Effect.sleep(`${POST_EXIT_GRACE_MS} millis`).pipe(Effect.asVoid),
+    ])
+    yield* Fiber.interrupt(reader).pipe(Effect.ignore)
+    const a = yield* Ref.get(acc)
+    return { buffer: Buffer.concat(a.chunks), truncated: a.truncated }
+  })
 
 const layer = Layer.effect(
   Service,
@@ -148,7 +178,7 @@ const layer = Layer.effect(
           const handle = yield* spawner.spawn(command)
           if (options?.combineOutput) {
             const [output, exitCode] = yield* Effect.all(
-              [collectStream(handle.all, options.maxOutputBytes), handle.exitCode],
+              [collectBounded(handle, handle.all, options.maxOutputBytes), handle.exitCode],
               { concurrency: "unbounded" },
             )
             return {
@@ -164,8 +194,8 @@ const layer = Layer.effect(
           }
           const [stdout, stderr, exitCode] = yield* Effect.all(
             [
-              collectStream(handle.stdout, options?.maxOutputBytes),
-              collectStream(handle.stderr, options?.maxErrorBytes),
+              collectBounded(handle, handle.stdout, options?.maxOutputBytes),
+              collectBounded(handle, handle.stderr, options?.maxErrorBytes),
               handle.exitCode,
             ],
             { concurrency: "unbounded" },

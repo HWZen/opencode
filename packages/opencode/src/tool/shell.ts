@@ -1,4 +1,4 @@
-import { Effect, Stream } from "effect"
+import { Effect, Fiber, Stream } from "effect"
 import os from "os"
 import { createWriteStream } from "node:fs"
 import * as Tool from "./tool"
@@ -9,6 +9,7 @@ import { lazy } from "@/util/lazy"
 import { Language, type Node } from "web-tree-sitter"
 
 import { FSUtil } from "@opencode-ai/core/fs-util"
+import { POST_EXIT_GRACE_MS } from "@opencode-ai/core/cross-spawn-spawner"
 import { fileURLToPath } from "url"
 import { Config } from "@/config/config"
 import { RuntimeFlags } from "@/effect/runtime-flags"
@@ -483,7 +484,7 @@ export const ShellTool = Tool.define(
           yield* Effect.addFinalizer(closeSink)
           const handle = yield* spawner.spawn(cmd(input.shell, input.command, input.cwd, input.env))
 
-          yield* Effect.forkScoped(
+          const reader = yield* Effect.forkScoped(
             Stream.runForEach(Stream.decodeText(handle.all), (chunk) => {
               const size = Buffer.byteLength(chunk, "utf-8")
               list.push({ text: chunk, size })
@@ -553,6 +554,15 @@ export const ShellTool = Tool.define(
             expired = true
             yield* handle.kill({ forceKillAfter: "3 seconds" }).pipe(Effect.orDie)
           }
+
+          // EOF first: when the command is fully drained the reader ends and we return with no
+          // added delay. Otherwise a descendant that inherited the pipes keeps them open, so
+          // stop reading at most POST_EXIT_GRACE_MS after the direct child exited.
+          yield* Effect.raceAll([
+            Fiber.join(reader).pipe(Effect.asVoid, Effect.ignore),
+            Effect.sleep(`${POST_EXIT_GRACE_MS} millis`).pipe(Effect.asVoid),
+          ])
+          yield* Fiber.interrupt(reader).pipe(Effect.ignore)
 
           return exit.kind === "exit" ? exit.code : null
         }),
